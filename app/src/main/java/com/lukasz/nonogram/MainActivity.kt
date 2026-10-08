@@ -1,10 +1,16 @@
 package com.lukasz.nonogram
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,7 +27,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 import kotlin.getValue
 
@@ -33,17 +43,71 @@ class MainActivity : ComponentActivity() {
     private val rowHeaderWidth = 80.dp
     private val columnHeaderHeight = 80.dp
 
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.CAMERA),
+                100
+            )
+        }
+
         setContent {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center) {
 
-                Board()
+                CameraPreview()
+                //Board()
             }
         }
+    }
+
+    @Composable
+    fun CameraPreview() {
+        val context = LocalContext.current
+        val lifecycleOwner = LocalLifecycleOwner.current
+
+        AndroidView(
+            factory = { ctx ->
+                PreviewView(ctx).apply {
+
+                    val cameraProviderFuture =
+                        ProcessCameraProvider.getInstance(ctx)
+
+                    cameraProviderFuture.addListener({
+
+                        val cameraProvider =
+                            cameraProviderFuture.get()
+
+                        val preview = Preview.Builder().build()
+
+                        preview.surfaceProvider = surfaceProvider
+
+                        val cameraSelector =
+                            CameraSelector.DEFAULT_BACK_CAMERA
+
+                        cameraProvider.unbindAll()
+
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            cameraSelector,
+                            preview
+                        )
+
+                    }, ContextCompat.getMainExecutor(ctx))
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 
     @Composable

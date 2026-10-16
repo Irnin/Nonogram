@@ -1,10 +1,28 @@
 package com.lukasz.nonogram
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import org.opencv.core.Mat
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 class ViewModel: ViewModel() {
 
     private val model = Model()
+    var grayImage by mutableStateOf<Mat?>(null)
+        private set
+
+    fun updateGrayImage(mat: Mat) {
+        grayImage?.release()
+        grayImage = mat
+    }
+
+    override fun onCleared() {
+        grayImage?.release()
+        grayImage = null
+    }
+
+
 
     fun getBoard(): List<List<Fields>>{
         return model.board.map { row ->

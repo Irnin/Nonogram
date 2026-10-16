@@ -60,4 +60,6 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.opencv)
+    implementation(libs.navigation.compose)
 }

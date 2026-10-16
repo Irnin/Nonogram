@@ -1,28 +1,15 @@
-package com.lukasz.nonogram
+package com.lukasz.nonogram.screens.game
 
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
-import org.opencv.core.Mat
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import com.lukasz.nonogram.Fields
 
-class ViewModel: ViewModel() {
+class GameController: ViewModel() {
 
-    private val model = Model()
-    var grayImage by mutableStateOf<Mat?>(null)
-        private set
-
-    fun updateGrayImage(mat: Mat) {
-        grayImage?.release()
-        grayImage = mat
-    }
-
-    override fun onCleared() {
-        grayImage?.release()
-        grayImage = null
-    }
-
-
+    val cellSize = 40.dp
+    val rowHeaderWidth = 80.dp
+    val columnHeaderHeight = 80.dp
+    private val model = GameModel()
 
     fun getBoard(): List<List<Fields>>{
         return model.board.map { row ->

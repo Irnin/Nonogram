@@ -4,12 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.lukasz.nonogram.screens.Board
-import com.lukasz.nonogram.screens.CameraScreen
 import com.lukasz.nonogram.screens.MainScreen
+import com.lukasz.nonogram.screens.camera.CameraController
+import com.lukasz.nonogram.screens.camera.view.CameraScreen
+import com.lukasz.nonogram.screens.game.GameController
+import com.lukasz.nonogram.screens.game.view.Board
 
 @Composable
-fun Navigation(vm: ViewModel) {
+fun Navigation(gameController: GameController, cameraController: CameraController) {
     val navController = rememberNavController()
 
     val startupScreen = Screen.MainScreen
@@ -20,11 +22,11 @@ fun Navigation(vm: ViewModel) {
         }
 
         composable(route = Screen.GameScreen.route) {
-            Board(vm)
+            Board(gameController)
         }
 
         composable(route = Screen.CameraScreen.route) {
-            CameraScreen(vm)
+            CameraScreen(cameraController)
         }
     }
 }

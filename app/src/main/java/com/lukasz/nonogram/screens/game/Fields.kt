@@ -1,4 +1,4 @@
-package com.lukasz.nonogram
+package com.lukasz.nonogram.screens.game
 
 enum class Fields {
     EMPTY,

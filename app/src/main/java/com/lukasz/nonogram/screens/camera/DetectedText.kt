@@ -1,4 +1,4 @@
-package com.lukasz.nonogram
+package com.lukasz.nonogram.screens.camera
 
 class DetectedText(
     val x: Int,

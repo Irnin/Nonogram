@@ -23,7 +23,7 @@ fun MyCanvas(controller: CameraController) {
         val nativeCanvas = drawContext.canvas.nativeCanvas
 
 
-        controller.detectedText.forEach { text ->
+        controller.getDetectedText().forEach { text ->
             val x = text.x.toFloat()
             val y = text.y.toFloat()
             val width = text.width

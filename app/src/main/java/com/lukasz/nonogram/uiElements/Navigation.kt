@@ -1,10 +1,11 @@
-package com.lukasz.nonogram
+package com.lukasz.nonogram.uiElements
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.lukasz.nonogram.screens.MainScreen
+import com.lukasz.nonogram.screens.Screen
 import com.lukasz.nonogram.screens.camera.CameraController
 import com.lukasz.nonogram.screens.camera.view.CameraScreen
 import com.lukasz.nonogram.screens.game.GameController

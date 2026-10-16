@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import com.lukasz.nonogram.extensions.getBitmap
 import com.lukasz.nonogram.screens.camera.CameraController
 
 @Composable
@@ -18,12 +19,12 @@ fun MatImage(controller: CameraController) {
     }
 
     val grayBitmap = remember(mat) {
-        controller.grayMatToBitmap(mat)
+        mat.getBitmap()
     }
 
     Image(
         bitmap = grayBitmap.asImageBitmap(),
-        contentDescription = "Obraz z OpenCV w skali szarości",
+        contentDescription = "Camera preview in gray scale",
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Fit
     )

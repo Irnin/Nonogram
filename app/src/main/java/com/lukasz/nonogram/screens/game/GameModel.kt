@@ -1,8 +1,6 @@
 package com.lukasz.nonogram.screens.game
 
 import androidx.compose.runtime.mutableStateOf
-import com.lukasz.nonogram.Fields
-import kotlin.collections.MutableList
 
 class GameModel {
     val columns = 5

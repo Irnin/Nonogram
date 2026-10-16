@@ -1,7 +1,5 @@
 package com.lukasz.nonogram.screens.camera
 
-import android.graphics.Bitmap
-import android.graphics.ImageFormat
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -11,15 +9,12 @@ import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.graphics.createBitmap
 import androidx.lifecycle.ViewModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.lukasz.nonogram.DetectedText
-import org.opencv.android.Utils
+import com.lukasz.nonogram.extensions.getGrayMap
 import org.opencv.core.Core
-import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
@@ -27,9 +22,6 @@ import org.opencv.imgproc.Imgproc
 class CameraController : ViewModel() {
 
     private val model = CameraModel()
-
-    val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    var detectedText by mutableStateOf<List<DetectedText>>(emptyList())
 
     var grayImage by mutableStateOf<Mat?>(null)
         private set
@@ -44,8 +36,13 @@ class CameraController : ViewModel() {
         grayImage = null
     }
 
+    fun getDetectedText(): List<DetectedText> {
+        return model.detectedText
+    }
+
     @OptIn(ExperimentalGetImage::class)
     fun processImage(imageProxy: ImageProxy) {
+        val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         val mediaImage = imageProxy.image
 
         if (mediaImage == null) {
@@ -75,24 +72,22 @@ class CameraController : ViewModel() {
                     }
 
                     Handler(Looper.getMainLooper()).post {
-                        detectedText = newDetectedText
+                        model.detectedText = newDetectedText
                     }
-
-                    Log.d("MLKit", "Rozpoznany tekst: ${visionText.text}")
                 }
                 .addOnFailureListener { exception ->
-                    Log.e("MLKit", "Błąd rozpoznawania tekstu", exception)
+                    Log.e("MLKit", "There was an issue during text decognition", exception)
                 }
                 .addOnCompleteListener {
                     imageProxy.close()
                 }
 
 
-            val grayMat = imageProxyToGrayMat(imageProxy)
+            val grayMat = imageProxy.getGrayMap()
 
             try {
                 val horizontalLines = detectHorizontalLines(grayMat)
-                Log.d("OpenCV", "Wykryte linie poziome: ${horizontalLines.joinToString()}")
+                Log.d("OpenCV", "found horizontal line: ${horizontalLines.joinToString()}")
 
                 // Tworzymy osobną kopię, którą może przechowywać ViewModel.
                 val displayMat = grayMat.clone()
@@ -105,7 +100,7 @@ class CameraController : ViewModel() {
             }
 
         } catch (e: Exception) {
-            Log.e("CameraAnalysis", "Błąd przetwarzania klatki", e)
+            Log.e("CameraAnalysis", "Can not process frame", e)
             imageProxy.close()
         }
     }
@@ -170,56 +165,6 @@ class CameraController : ViewModel() {
 
             kernel?.release()
         }
-    }
-
-    fun imageProxyToGrayMat(imageProxy: ImageProxy): Mat {
-        require(imageProxy.format == ImageFormat.YUV_420_888) {
-            "Oczekiwano obrazu YUV_420_888"
-        }
-
-        val plane = imageProxy.planes[0]
-        val buffer = plane.buffer.duplicate()
-
-        val width = imageProxy.width
-        val height = imageProxy.height
-        val rowStride = plane.rowStride
-        val pixelStride = plane.pixelStride
-
-        val pixels = ByteArray(width * height)
-
-        for (y in 0 until height) {
-            val rowStart = y * rowStride
-
-            for (x in 0 until width) {
-                val index = rowStart + x * pixelStride
-
-                if (index >= buffer.limit()) {
-                    throw IllegalStateException("Nieprawidłowy indeks płaszczyzny Y: $index, " + "limit: ${buffer.limit()}")
-                }
-
-                pixels[y * width + x] = buffer.get(index)
-            }
-        }
-
-        val gray = Mat(height, width, CvType.CV_8UC1)
-
-        gray.put(0, 0, pixels)
-
-        return gray
-    }
-
-    fun grayMatToBitmap(grayMat: Mat): Bitmap {
-        val bitmap = createBitmap(grayMat.cols(), grayMat.rows())
-        val rgbaMat = Mat()
-
-        try {
-            Imgproc.cvtColor(grayMat, rgbaMat, Imgproc.COLOR_GRAY2RGBA)
-            Utils.matToBitmap(rgbaMat, bitmap)
-        } finally {
-            rgbaMat.release()
-        }
-
-        return bitmap
     }
 
     fun groupNearbyRows(rows: List<Int>, maxGap: Int): List<Int> {

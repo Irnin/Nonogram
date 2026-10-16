@@ -8,11 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.lukasz.nonogram.Screen
+import com.lukasz.nonogram.screens.Screen
 
 @Composable
 fun MenuButton(navController: NavController, screen: Screen) {
-    Button(onClick = { navController.navigate(screen.route) },
+    Button(
+        onClick = { navController.navigate(screen.route) },
         Modifier
             .padding(horizontal = 40.dp, vertical = 5.dp)
             .fillMaxWidth()

@@ -2,16 +2,15 @@ package com.lukasz.nonogram.screens.game
 
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
-import com.lukasz.nonogram.Fields
 
-class GameController: ViewModel() {
+class GameController : ViewModel() {
 
     val cellSize = 40.dp
     val rowHeaderWidth = 80.dp
     val columnHeaderHeight = 80.dp
     private val model = GameModel()
 
-    fun getBoard(): List<List<Fields>>{
+    fun getBoard(): List<List<Fields>> {
         return model.board.map { row ->
             row.map { fieldState ->
                 fieldState.value
@@ -38,10 +37,9 @@ class GameController: ViewModel() {
     fun doAction(row: Int, column: Int) {
         val field = getField(row, column)
 
-        if(field == Fields.EMPTY) {
+        if (field == Fields.EMPTY) {
             setField(row, column, Fields.FULL)
-        }
-        else {
+        } else {
             setField(row, column, Fields.EMPTY)
         }
     }

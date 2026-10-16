@@ -11,6 +11,7 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import com.lukasz.nonogram.screens.camera.CameraController
 import com.lukasz.nonogram.screens.game.GameController
+import com.lukasz.nonogram.uiElements.Navigation
 import org.opencv.android.OpenCVLoader
 
 class MainActivity : ComponentActivity() {

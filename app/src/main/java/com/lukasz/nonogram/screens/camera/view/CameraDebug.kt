@@ -69,6 +69,15 @@ fun CameraDebug(controller: CameraController) {
             ) {
                 MatImage(controller.edgeImage)
             }
+
+            CameraDebugFrame(
+                controller = controller,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                MatImage(controller.linesImage)
+            }
         }
     }
 }

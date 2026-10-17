@@ -8,11 +8,36 @@ import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
 
 fun Mat.getBitmap(): Bitmap {
+    require(!this.empty()) { "Cannot create Bitmap from an empty Mat" }
+
     val bitmap = createBitmap(this.cols(), this.rows())
     val rgbaMat = Mat()
 
     try {
-        Imgproc.cvtColor(this, rgbaMat, Imgproc.COLOR_GRAY2RGBA)
+        when (this.channels()) {
+            1 -> Imgproc.cvtColor(
+                this,
+                rgbaMat,
+                Imgproc.COLOR_GRAY2RGBA
+            )
+
+            3 -> Imgproc.cvtColor(
+                this,
+                rgbaMat,
+                Imgproc.COLOR_BGR2RGBA
+            )
+
+            4 -> Imgproc.cvtColor(
+                this,
+                rgbaMat,
+                Imgproc.COLOR_BGRA2RGBA
+            )
+
+            else -> throw IllegalArgumentException(
+                "Unsupported number of channels: ${this.channels()}"
+            )
+        }
+
         Utils.matToBitmap(rgbaMat, bitmap)
     } finally {
         rgbaMat.release()
@@ -30,6 +55,6 @@ fun Mat.normalizeOrientation(degrees: Int): Mat {
         270 -> Core.rotate(this, rotated, Core.ROTATE_90_COUNTERCLOCKWISE)
         else -> this.copyTo(rotated)
     }
-    
+
     return rotated
 }

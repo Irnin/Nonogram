@@ -8,6 +8,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -19,33 +20,43 @@ fun CameraPreview(cameraController: CameraController) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = Executors.newSingleThreadExecutor()
 
-    AndroidView(factory = { context ->
-        PreviewView(context).apply {
+    AndroidView(
+        factory = { context ->
+            PreviewView(context).apply {
 
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
-            cameraProviderFuture.addListener({
+                cameraProviderFuture.addListener({
 
-                val cameraProvider = cameraProviderFuture.get()
-                val preview = Preview.Builder().build()         // ??
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build()         // ??
 
-                preview.surfaceProvider = surfaceProvider
+                    preview.surfaceProvider = surfaceProvider
 
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                        .build()
 
-                imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                    cameraController.processImage(imageProxy)
-                }
+                    imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                        cameraController.processImage(imageProxy)
+                    }
 
-                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageAnalysis
+                    )
 
-            }, ContextCompat.getMainExecutor(context))
-        }
-    },
-        modifier = Modifier.fillMaxSize())
+                }, ContextCompat.getMainExecutor(context))
+            }
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds()
+    )
 }

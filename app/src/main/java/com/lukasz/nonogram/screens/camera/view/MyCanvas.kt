@@ -5,8 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import com.lukasz.nonogram.screens.camera.CameraController
 
@@ -21,39 +19,5 @@ fun MyCanvas(controller: CameraController) {
         }
 
         val nativeCanvas = drawContext.canvas.nativeCanvas
-
-
-        controller.getDetectedText().forEach { text ->
-            val x = text.x.toFloat()
-            val y = text.y.toFloat()
-            val width = text.width
-            val height = text.height
-
-            nativeCanvas.drawText(text.content, text.x.toFloat(), text.y.toFloat(), paint)
-
-            drawLine(
-                color = Color.Green,
-                start = Offset(x, y),
-                end = Offset(x + width, y)
-            )
-
-            drawLine(
-                color = Color.Green,
-                start = Offset(x, y + height),
-                end = Offset(x + width, y + height)
-            )
-
-            drawLine(
-                color = Color.Green,
-                start = Offset(x, y),
-                end = Offset(x, y + height)
-            )
-
-            drawLine(
-                color = Color.Green,
-                start = Offset(x + width, y),
-                end = Offset(x + width, y + height)
-            )
-        }
     }
 }

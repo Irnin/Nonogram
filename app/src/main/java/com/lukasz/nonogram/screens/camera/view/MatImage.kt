@@ -8,18 +8,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import com.lukasz.nonogram.extensions.getBitmap
-import com.lukasz.nonogram.screens.camera.CameraController
+import org.opencv.core.Mat
 
 @Composable
-fun MatImage(controller: CameraController) {
-    val mat = controller.grayImage
+fun MatImage(matImage: Mat?) {
 
-    if (mat == null || mat.empty()) {
+    if (matImage == null || matImage.empty()) {
         return
     }
 
-    val grayBitmap = remember(mat) {
-        mat.getBitmap()
+    val grayBitmap = remember(matImage) {
+        matImage.getBitmap()
     }
 
     Image(

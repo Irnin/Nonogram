@@ -27,7 +27,7 @@ fun CameraScreen(controller: CameraController) {
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            MatImage(controller)
+            MatImage(controller.grayImage)
         }
     }
 }

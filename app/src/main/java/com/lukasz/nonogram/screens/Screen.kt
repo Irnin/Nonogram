@@ -6,5 +6,6 @@ sealed class Screen(val route: String, val title: String) {
     object GameScreen : Screen("gameScreen", "Start Game")
     object SettingsScreen : Screen("settingsScreen", "Settings")
 
-    object CameraDebugScreen : Screen("cameraDebugScreen", "Camera Debug")
+    object OpenCvDebugScreen : Screen("openCvDebugScreen", "Open CV Debug")
+    object HintsDebugScreen : Screen("hintsDebugScreen", "Hints Debug")
 }

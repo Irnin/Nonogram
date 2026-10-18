@@ -1,4 +1,4 @@
-package com.lukasz.nonogram.screens.camera.view
+package com.lukasz.nonogram.screens.camera.view.debug
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukasz.nonogram.screens.camera.CameraController
+import com.lukasz.nonogram.screens.camera.view.CameraPreview
+import com.lukasz.nonogram.screens.camera.view.MatImage
 import com.lukasz.nonogram.uiElements.CameraDebugFrame
 
 @Composable
@@ -52,7 +54,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.grayImage)
+                MatImage(controller.getGrayImage())
             }
         }
 
@@ -67,7 +69,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.edgeImage)
+                MatImage(controller.getEdgeImage())
             }
 
             CameraDebugFrame(
@@ -76,7 +78,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.linesImage)
+                MatImage(controller.getLinesImage())
             }
         }
     }

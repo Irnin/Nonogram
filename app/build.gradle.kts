@@ -63,4 +63,6 @@ dependencies {
     implementation(libs.mlkit.text.recognition)
     implementation(libs.opencv)
     implementation(libs.navigation.compose)
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.gpu)
 }

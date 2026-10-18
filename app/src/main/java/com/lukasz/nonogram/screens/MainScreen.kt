@@ -30,5 +30,8 @@ fun MainScreen(navController: NavController) {
 
         MenuButton(navController, Screen.GameScreen)
         MenuButton(navController, Screen.CameraScreen)
+
+        MenuButton(navController, Screen.OpenCvDebugScreen)
+        MenuButton(navController, Screen.HintsDebugScreen)
     }
 }

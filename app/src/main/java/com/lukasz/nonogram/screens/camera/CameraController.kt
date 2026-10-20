@@ -1,14 +1,12 @@
 package com.lukasz.nonogram.screens.camera
 
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import com.lukasz.nonogram.extensions.getGrayMap
-import com.lukasz.nonogram.screens.camera.model.ImageType
+import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 import com.lukasz.nonogram.screens.camera.tools.GridDetector
 import com.lukasz.nonogram.screens.camera.view.ImageCreator
 import org.opencv.core.Mat
@@ -25,42 +23,23 @@ class CameraController : ViewModel() {
     @OptIn(ExperimentalGetImage::class)
     fun processImage(imageProxy: ImageProxy) {
         var grayImage: Mat? = null
-        var edgeImage: Mat? = null
 
         try {
             grayImage = imageProxy.getGrayMap().clone()
-            model.updateImage(ImageType.GRAY, grayImage)
 
-            edgeImage = imageCreator.createEdgesImage(grayImage)
-            model.updateImage(ImageType.EDGES, edgeImage)
-
-            gridDetector.initialProcess()
-
-            Handler(Looper.getMainLooper()).post {
-                model.updateImage(
-                    ImageType.LINES,
-                    imageCreator.createLinesImage(
-                        model.getImage(ImageType.GRAY),
-                        model.horizontalLines,
-                        model.verticalLines
-                    )
-                )
-            }
+            gridDetector.initialProcess(grayImage)
 
             grayImage = null
-            edgeImage = null
 
         } catch (e: Exception) {
             Log.e("CameraAnalysis", "Cannot process frame", e)
         } finally {
             grayImage?.release()
-            edgeImage?.release()
             imageProxy.close()
         }
     }
 
     // Getters
-
     fun getImage(type: ImageType): Mat {
         return model.getImage(type)
     }

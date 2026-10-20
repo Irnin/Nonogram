@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.lukasz.nonogram.screens.camera.CameraController
-import com.lukasz.nonogram.screens.camera.model.ImageType
+import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 
 @Composable
 fun CameraScreen(controller: CameraController) {
@@ -28,7 +28,7 @@ fun CameraScreen(controller: CameraController) {
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            MatImage(controller.getImage(ImageType.GRAY))
+            MatImage(controller.getImage(ImageType.GLOBAL_GRAY))
         }
     }
 }

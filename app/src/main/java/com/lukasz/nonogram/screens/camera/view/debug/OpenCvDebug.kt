@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.lukasz.nonogram.screens.camera.CameraController
-import com.lukasz.nonogram.screens.camera.model.ImageType
+import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 import com.lukasz.nonogram.screens.camera.view.CameraPreview
 import com.lukasz.nonogram.screens.camera.view.MatImage
 import com.lukasz.nonogram.uiElements.CameraDebugFrame
@@ -41,7 +41,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getImage(ImageType.CORNERS))
+                MatImage(controller.getImage(ImageType.GLOBAL_CORNERS))
             }
         }
 
@@ -56,7 +56,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getImage(ImageType.LINES))
+                MatImage(controller.getImage(ImageType.GLOBAL_LINES))
             }
 
             CameraDebugFrame(

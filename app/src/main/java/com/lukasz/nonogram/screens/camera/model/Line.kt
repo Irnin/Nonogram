@@ -36,4 +36,9 @@ class Line {
             this.index = this.start.y
         }
     }
+
+    enum class Orientation {
+        HORIZONTAL, VERTICAL
+    }
 }
+

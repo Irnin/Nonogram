@@ -1,46 +1,35 @@
 package com.lukasz.nonogram.extensions
 
 import android.graphics.Bitmap
-import androidx.core.graphics.createBitmap
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.Mat
 import org.opencv.imgproc.Imgproc
 
 fun Mat.getBitmap(): Bitmap {
-    require(!this.empty()) { "Cannot create Bitmap from an empty Mat" }
+    require(!empty()) {
+        "Cannot convert an empty Mat to Bitmap"
+    }
 
-    val bitmap = createBitmap(this.cols(), this.rows())
-    val rgbaMat = Mat()
+    val bitmap = Bitmap.createBitmap(
+        cols(),
+        rows(),
+        Bitmap.Config.ARGB_8888
+    )
+
+    val rgba = Mat()
 
     try {
-        when (this.channels()) {
-            1 -> Imgproc.cvtColor(
-                this,
-                rgbaMat,
-                Imgproc.COLOR_GRAY2RGBA
-            )
-
-            3 -> Imgproc.cvtColor(
-                this,
-                rgbaMat,
-                Imgproc.COLOR_BGR2RGBA
-            )
-
-            4 -> Imgproc.cvtColor(
-                this,
-                rgbaMat,
-                Imgproc.COLOR_BGRA2RGBA
-            )
-
-            else -> throw IllegalArgumentException(
-                "Unsupported number of channels: ${this.channels()}"
-            )
+        when (channels()) {
+            1 -> Imgproc.cvtColor(this, rgba, Imgproc.COLOR_GRAY2RGBA)
+            3 -> Imgproc.cvtColor(this, rgba, Imgproc.COLOR_BGR2RGBA)
+            4 -> Imgproc.cvtColor(this, rgba, Imgproc.COLOR_BGRA2RGBA)
+            else -> error("Unsupported Mat channels: ${channels()}")
         }
 
-        Utils.matToBitmap(rgbaMat, bitmap)
+        Utils.matToBitmap(rgba, bitmap)
     } finally {
-        rgbaMat.release()
+        rgba.release()
     }
 
     return bitmap

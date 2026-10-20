@@ -1,13 +1,13 @@
 package com.lukasz.nonogram.screens.camera.tools
 
 import Constants
-import android.util.Log
 import com.lukasz.nonogram.extensions.Util.intersection
 import com.lukasz.nonogram.screens.camera.CameraModel
 import com.lukasz.nonogram.screens.camera.model.BoardRegion
-import com.lukasz.nonogram.screens.camera.model.ImageType
+import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 import com.lukasz.nonogram.screens.camera.model.Line
-import com.lukasz.nonogram.screens.camera.model.Orientation
+import com.lukasz.nonogram.screens.camera.model.Line.Orientation
+import com.lukasz.nonogram.screens.camera.view.ImageCreator
 import org.opencv.core.Mat
 import org.opencv.core.MatOfPoint
 import org.opencv.core.MatOfPoint2f
@@ -22,55 +22,69 @@ import kotlin.math.max
 class GridDetector(val model: CameraModel) {
 
     //val lineBuffer = LineBuffer()
+    val imageCreator = ImageCreator()
 
-    fun initialProcess() {
-        val corners = calculateCorners()
-        model.updateCorners(corners)
+    fun initialProcess(grayImage: Mat) {
+        model.updateImage(ImageType.GLOBAL_GRAY, grayImage)
+
+        val edgeImage = imageCreator.createEdgesImage(grayImage)
+        model.updateImage(ImageType.GLOBAL_EDGES, edgeImage)
+
+        val corners = calculateCorners(grayImage)
+        val cornersImage = imageCreator.createCornersImage(grayImage, corners)
+        model.updateImage(ImageType.GLOBAL_CORNERS, cornersImage)
 
         val globalLines = detectLineSegments()
-        model.updateLines(globalLines)
 
         val processedLines = processLines(globalLines)
         val horizontalLines = processedLines.first
         val verticalLines = processedLines.second
 
-        model.updateHorizontalLines(horizontalLines)
-        model.updateVerticalLines(verticalLines)
+        val globalImageLines = imageCreator.createLinesImage(
+            model.getImage(ImageType.GLOBAL_GRAY),
+            horizontalLines,
+            verticalLines
+        )
+
+        model.updateImage(ImageType.GLOBAL_LINES, globalImageLines)
 
         val boardRegion = localizeGameBoard(horizontalLines, verticalLines)
-        val boardImage = extractGameBoard(model.getImage(ImageType.GRAY), boardRegion)
+        val boardImage = extractGameBoard(model.getImage(ImageType.GLOBAL_GRAY), boardRegion)
+
+        processBoardPicture(boardImage)
+    }
+
+    fun processBoardPicture(boardImage: Mat) {
 
         model.updateImage(ImageType.DRAFT, boardImage)
-
-        //findRegularLines()
     }
 
 
-    private fun calculateCorners(): List<Point> {
+    private fun calculateCorners(sourceImage: Mat): List<Point> {
+
+        if (sourceImage.empty()) return emptyList()
+
         val corners = MatOfPoint()
 
-        val gray = model.getImage(ImageType.GRAY)
         val points = mutableListOf<Point>()
 
         Imgproc.goodFeaturesToTrack(
-            gray,
+            sourceImage,
             corners,
             100,
             0.01,
             10.0
         )
 
-        model.corners.clear()
-
         for (point in corners.toArray()) {
-            model.corners.add(point)
+            points.add(point)
         }
 
         return points
     }
 
     private fun detectLineSegments(): Mat {
-        val edgeImage = model.getImage(ImageType.EDGES)
+        val edgeImage = model.getImage(ImageType.GLOBAL_EDGES)
 
         if (edgeImage.empty()) return Mat()
 
@@ -218,62 +232,6 @@ class GridDetector(val model: CameraModel) {
         }
 
         return Line(start, end, orientation)
-    }
-
-    private fun findRegularLines(tolerance: Double = 7.0) {
-        val horizontalLines = findRegularLines(model.horizontalLines, tolerance)
-        val verticalLines = findRegularLines(model.verticalLines, tolerance)
-
-        model.updateHorizontalLines(horizontalLines)
-        model.updateVerticalLines(verticalLines)
-    }
-
-    private fun findRegularLines(lines: List<Line>, tolerance: Double): List<Line> {
-        if (lines.size < 3) return emptyList()
-
-        val distances = lines.zipWithNext { first, second ->
-            abs(second.index - first.index)
-        }
-
-        if (distances.isEmpty()) return emptyList()
-
-        val sortedDistances = distances.sorted()
-
-        var bestDistance = sortedDistances.first()
-        var bestCount = 0
-
-        for (i in sortedDistances.indices) {
-            val reference = sortedDistances[i]
-
-            val count = sortedDistances.count {
-                abs(it - reference) <= tolerance
-            }
-
-            if (count > bestCount) {
-                bestCount = count
-                bestDistance = reference
-            }
-        }
-
-        val regularLines = mutableListOf<Line>()
-
-        for (i in lines.indices) {
-            val hasRegularPrevious = i > 0 &&
-                    abs(distances[i - 1] - bestDistance) <= tolerance
-
-            val hasRegularNext = i < distances.size &&
-                    abs(distances[i] - bestDistance) <= tolerance
-
-            if (hasRegularPrevious || hasRegularNext) {
-                regularLines.add(lines[i])
-            }
-        }
-
-        Log.w("distance", "Odstępy: $distances")
-        Log.w("distance", "Typowy odstęp: $bestDistance")
-        Log.w("distance", "Regularne linie: ${regularLines.size}")
-
-        return regularLines
     }
 
     private fun localizeGameBoard(

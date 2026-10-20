@@ -1,7 +1,7 @@
 package com.lukasz.nonogram.screens.camera.tools
 
 import com.lukasz.nonogram.screens.camera.model.Line
-import com.lukasz.nonogram.screens.camera.model.Orientation
+import com.lukasz.nonogram.screens.camera.model.Line.Orientation
 import kotlin.math.abs
 
 // Dodaje tutaj linie, aby uzyskać stabilną linie

@@ -1,7 +1,7 @@
 package com.lukasz.nonogram.screens.camera.tools
 
 import com.lukasz.nonogram.screens.camera.model.Line
-import com.lukasz.nonogram.screens.camera.model.Orientation
+import com.lukasz.nonogram.screens.camera.model.Line.Orientation
 import org.opencv.core.Point
 import kotlin.math.abs
 

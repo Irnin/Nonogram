@@ -1,5 +1,7 @@
 package com.lukasz.nonogram.screens.camera
 
+import Constants
+import android.R.attr.font
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -7,26 +9,28 @@ import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
+import com.lukasz.nonogram.extensions.Util
 import com.lukasz.nonogram.extensions.getGrayMap
+import com.lukasz.nonogram.screens.camera.model.ImageType
 import com.lukasz.nonogram.screens.camera.model.Line
-import com.lukasz.nonogram.screens.camera.model.Orientation
+import com.lukasz.nonogram.screens.camera.tools.GridDetector
 import org.opencv.core.Mat
 import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.imgproc.Imgproc
 import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.random.Random
+import kotlin.math.sqrt
 
 class CameraController : ViewModel() {
     private val model = CameraModel()
+    private val gridDetector = GridDetector(model)
 
     override fun onCleared() {
         model.cleanModel()
     }
 
-    fun calculateEdges(): Mat? {
-        val gray = model.grayImage ?: return null
+    fun calculateEdges(): Mat {
+        val gray = model.getImage(ImageType.GRAY)
 
         val edges = Mat()
 
@@ -39,183 +43,116 @@ class CameraController : ViewModel() {
         return edges
     }
 
-    fun detectLineSegments() {
-        if (model.edgeImage?.empty() != false) {
-            return
-        }
 
-        val lines = Mat()
+    fun createBoardImage(): Mat {
+        val result = getImage(ImageType.GRAY).clone()
 
-        Imgproc.HoughLinesP(
-            model.edgeImage,
-            lines,
-            1.0,
-            Math.PI / 180.0,
-            80,
-            50.0,
-            10.0
-        )
+        val points = model.corners.toList()
 
-        model.updateLines(lines)
-    }
-
-    fun findHorizontalVerticalLines() {
-        val lines = model.lines ?: return
-
-        val angleTolerance = 10.0
-
-        val horizontalLines = mutableListOf<Line>()
-        val verticalLines = mutableListOf<Line>()
-
-        for (i in 0 until lines.rows()) {
-
-            val line = lines.get(i, 0) ?: continue
-
-            if (line.size < 4) continue
-
-            val x1 = line[0]
-            val y1 = line[1]
-            val x2 = line[2]
-            val y2 = line[3]
-
-            val dx = x2 - x1
-            val dy = y2 - y1
-
-            val angle = Math.toDegrees(atan2(dy, dx))
-
-            when {
-                abs(angle) <= angleTolerance || abs(angle) >= 180.0 - angleTolerance -> {
-                    val detectedLine = Line(Point(x1, y1), Point(x2, y2), Orientation.HORIZONTAL)
-                    horizontalLines.add(detectedLine)
+        for (point in points) {
+            val lines = model.horizontalLines
+            for (line in lines) {
+                if (!isPointOnLine(line, point)) {
+                    continue
                 }
 
-                abs(abs(angle) - 90.0) <= angleTolerance -> {
-                    val detectedLine = Line(Point(x1, y1), Point(x2, y2), Orientation.VERTICAL)
-                    verticalLines.add(detectedLine)
-                }
+                Imgproc.circle(
+                    result,
+                    point,
+                    5,
+                    Scalar(255.0, 105.0, 180.0, 255.0),
+                    2
+                )
+
             }
         }
 
-        model.updateHorizontalLines(horizontalLines)
-        model.updateVerticalLines(verticalLines)
+        return result
     }
 
-    fun normalizeLines() {
-        val threshold = 10
+    fun isPointOnLine(
+        line: Line,
+        point: Point,
+        epsilon: Double = 2.0
+    ): Boolean {
+        val dx = line.end.x - line.start.x
+        val dy = line.end.y - line.start.y
 
-        normalizeHorizontalLines(threshold)
-        normalizeVerticalLines(threshold)
-    }
+        val px = point.x - line.start.x
+        val py = point.y - line.start.y
 
-    fun normalizeHorizontalLines(threshold: Int = 10) {
-        val lines = model.horizontalLines.sortedBy { it.start.y }
-        if (lines.isEmpty()) return
+        val length = sqrt(dx * dx + dy * dy)
 
-        val linesGroup = mutableListOf<Line>()
-        val normalizedLines = mutableListOf<Line>()
-        var y = lines[0].start.y
-
-        for (line in lines) {
-            if (y - threshold < line.start.y && line.start.y < y + threshold) {
-                linesGroup.add(line)
-            } else {
-                val merged = mergeHorizontalLines(linesGroup)
-                normalizedLines.add(merged)
-                linesGroup.clear()
-                linesGroup.add(line)
-                y = line.start.y
-            }
+        if (length == 0.0) {
+            return sqrt(px * px + py * py) <= epsilon
         }
 
-        model.updateHorizontalLines(normalizedLines)
+        val distance = abs(dx * py - dy * px) / length
+
+        return distance <= epsilon
     }
 
-    fun normalizeVerticalLines(threshold: Int = 10) {
-        val lines = model.verticalLines.sortedBy { it.start.x }
-        if (lines.isEmpty()) return
+    // DETECTED LINES==========================================================================================================
+    fun createLinesImage(): Mat {
+        if (model.getImage(ImageType.GRAY).empty()) return Constants.NO_PICTURE
 
-        val linesGroup = mutableListOf<Line>()
-        val normalizedLines = mutableListOf<Line>()
-        var x = lines[0].start.x
-
-        for (line in lines) {
-            if (x - threshold < line.start.x && line.start.x < x + threshold) {
-                linesGroup.add(line)
-            } else {
-                val merged = mergeVerticalLines(linesGroup)
-                normalizedLines.add(merged)
-                linesGroup.clear()
-                linesGroup.add(line)
-                x = line.start.x
-            }
-        }
-
-        model.updateVerticalLines(normalizedLines)
-    }
-
-    fun mergeHorizontalLines(lines: List<Line>): Line {
-        var start = lines[0].start
-        var end = lines[0].end
-
-        for (current in lines) {
-            if (current.start.x < start.x) {
-                start = current.start
-            }
-
-            if (current.end.x > end.x) {
-                end = current.end
-            }
-        }
-
-        return Line(start, end, Orientation.HORIZONTAL)
-    }
-
-    fun mergeVerticalLines(lines: List<Line>): Line {
-        var start = lines[0].start
-        var end = lines[0].end
-
-        for (current in lines) {
-            if (current.start.y < start.y) {
-                start = current.start
-            }
-
-            if (current.end.y > end.y) {
-                end = current.end
-            }
-        }
-
-        return Line(start, end, Orientation.VERTICAL)
-    }
-
-
-    fun drowDetectedLines(): Mat? {
-        if (model.grayImage?.empty() != false) return null
-        if (model.horizontalLines.isEmpty()) return null
-        if (model.verticalLines.isEmpty()) return null
+        val grayImage = model.getImage(ImageType.GRAY)
 
         val result = Mat()
+        var counter = 0
 
         try {
-            Imgproc.cvtColor(model.grayImage, result, Imgproc.COLOR_GRAY2BGR)
+            Imgproc.cvtColor(grayImage, result, Imgproc.COLOR_GRAY2BGR)
 
+            counter = 0
             for (horizontalLine in model.horizontalLines) {
+                Imgproc.putText(
+                    result,
+                    "$counter",
+                    horizontalLine.start,
+                    font,
+                    1.0,
+                    Scalar(255.0, 255.0, 255.0),
+                    1,
+                    Imgproc.LINE_AA,
+                    false
+                )
+
                 Imgproc.line(
                     result,
                     horizontalLine.start,
                     horizontalLine.end,
-                    randomColor(),
+                    Util.getRandomScalar(),
                     2
                 )
+
+                counter += 1
             }
 
+            counter = 0
             for (verticalLine in model.verticalLines) {
+
+                Imgproc.putText(
+                    result,
+                    "$counter",
+                    verticalLine.start,
+                    font,
+                    1.0,
+                    Scalar(0.0, 255.0, 255.0),
+                    1,
+                    Imgproc.LINE_AA,
+                    false
+                )
+
                 Imgproc.line(
                     result,
                     verticalLine.start,
                     verticalLine.end,
-                    randomColor(),
+                    Util.getRandomScalar(),
                     2
                 )
+
+                counter += 1
             }
 
             return result
@@ -227,105 +164,58 @@ class CameraController : ViewModel() {
             model.lines?.release()
         }
     }
-
-
-    fun drawGridLines(): Mat? {
-        val gray = model.grayImage ?: return null
-
-        if (gray.empty()) return null
-
-        val result = Mat()
-
-        try {
-            Imgproc.cvtColor(
-                gray,
-                result,
-                Imgproc.COLOR_GRAY2BGR
-            )
-
-            for (line in model.gridHorizontalLines) {
-                Imgproc.line(
-                    result,
-                    line.start,
-                    line.end,
-                    randomColor(),
-                    2
-                )
-            }
-
-            for (line in model.gridVerticalLines) {
-                Imgproc.line(
-                    result,
-                    line.start,
-                    line.end,
-                    Scalar(255.0, 0.0, 0.0),
-                    2
-                )
-            }
-
-            return result
-        } catch (e: Exception) {
-            result.release()
-            throw e
-        }
-    }
-
+    
     @OptIn(ExperimentalGetImage::class)
     fun processImage(imageProxy: ImageProxy) {
         var grayImage: Mat? = null
         var edgeImage: Mat? = null
-        var detectedLinesImage: Mat? = null
 
         try {
             grayImage = imageProxy.getGrayMap().clone()
-            edgeImage = calculateEdges()
-            detectLineSegments()
-            findHorizontalVerticalLines()
-            normalizeLines()
-            detectedLinesImage = drowDetectedLines() //drawGridLines()
 
-            val grayResult = grayImage
-            val edgeResult = edgeImage
-            val detectedLinesResult = detectedLinesImage
-
-            Handler(Looper.getMainLooper()).post {
-                model.updateGrayImage(grayResult)
-                model.updateEdgeImage(edgeResult)
-                model.updateLinesImage(detectedLinesResult)
+            if (grayImage.empty()) {
+                Log.e("CameraAnalysis", "Pobrany obraz jest pusty")
+                return
             }
 
+            // Zapisz nową klatkę przed rozpoczęciem detekcji.
+            model.updateImage(ImageType.GRAY, grayImage)
+
+            edgeImage = Mat()
+
+            Imgproc.Canny(
+                grayImage,
+                edgeImage,
+                100.0,
+                200.0
+            )
+
+            model.updateImage(ImageType.EDGES, edgeImage)
+
+            // Teraz GridDetector widzi aktualne obrazy.
+            gridDetector.initialProcess()
+
+            Handler(Looper.getMainLooper()).post {
+                model.updateImage(ImageType.LINES, createLinesImage())
+                model.updateImage(ImageType.BOARD, createBoardImage())
+            }
+
+            // Własność obrazów została przekazana do modelu.
             grayImage = null
             edgeImage = null
-            detectedLinesImage = null
 
         } catch (e: Exception) {
             Log.e("CameraAnalysis", "Cannot process frame", e)
         } finally {
             grayImage?.release()
             edgeImage?.release()
-            detectedLinesImage?.release()
             imageProxy.close()
         }
     }
 
     // Getters
-    fun getGrayImage(): Mat {
-        return model.grayImage ?: model.noPicImage
-    }
 
-    fun getEdgeImage(): Mat {
-        return model.edgeImage ?: model.noPicImage
-    }
-
-    fun getLinesImage(): Mat {
-        return model.linesImage ?: model.noPicImage
-    }
-
-    private fun randomColor(): Scalar {
-        return Scalar(
-            Random.nextInt(256).toDouble(),
-            Random.nextInt(256).toDouble(),
-            Random.nextInt(256).toDouble()
-        )
+    fun getImage(type: ImageType): Mat {
+        return model.getImage(type)
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lukasz.nonogram.screens.camera.CameraController
+import com.lukasz.nonogram.screens.camera.model.ImageType
 import com.lukasz.nonogram.screens.camera.view.CameraPreview
 import com.lukasz.nonogram.screens.camera.view.MatImage
 import com.lukasz.nonogram.uiElements.CameraDebugFrame
@@ -54,7 +55,7 @@ fun HintDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getGrayImage())
+                MatImage(controller.getImage(ImageType.GRAY))
             }
         }
 
@@ -69,7 +70,7 @@ fun HintDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getEdgeImage())
+                MatImage(controller.getImage(ImageType.EDGES))
             }
 
             CameraDebugFrame(
@@ -78,7 +79,7 @@ fun HintDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getLinesImage())
+                MatImage(controller.getImage(ImageType.LINES))
             }
         }
     }

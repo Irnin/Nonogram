@@ -6,9 +6,13 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -16,7 +20,7 @@ import com.lukasz.nonogram.screens.camera.CameraController
 import java.util.concurrent.Executors
 
 @Composable
-fun CameraPreview(cameraController: CameraController) {
+fun CameraPreview(cameraController: CameraController, visible: Boolean = true) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = Executors.newSingleThreadExecutor()
 
@@ -56,7 +60,20 @@ fun CameraPreview(cameraController: CameraController) {
             }
         },
         modifier = Modifier
-            .fillMaxSize()
+            .then(
+                if (visible) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier.size(1.dp)
+                }
+            )
             .clipToBounds()
+            .alpha(if (visible) 1f else 0f)
     )
+
+    DisposableEffect(cameraExecutor) {
+        onDispose {
+            cameraExecutor.shutdown()
+        }
+    }
 }

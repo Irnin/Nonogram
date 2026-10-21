@@ -1,5 +1,6 @@
 package com.lukasz.nonogram.screens.camera.view
 
+import Constants
 import android.R.attr.font
 import com.lukasz.nonogram.extensions.Util
 import com.lukasz.nonogram.screens.camera.model.Lines
@@ -10,7 +11,7 @@ import org.opencv.imgproc.Imgproc
 class ImageCreator {
     fun createLinesImage(sourceImage: Mat, lines: Lines): Mat {
 
-        if (sourceImage.empty()) return Mat()
+        if (sourceImage.empty()) return Constants.NO_PICTURE
 
         var result = Mat()
         var counter = 0

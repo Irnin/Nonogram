@@ -3,18 +3,13 @@ package com.lukasz.nonogram.screens.camera.view
 import Constants
 import android.R.attr.font
 import com.lukasz.nonogram.extensions.Util
-import com.lukasz.nonogram.screens.camera.model.Line
+import com.lukasz.nonogram.screens.camera.model.Lines
 import org.opencv.core.Mat
-import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.imgproc.Imgproc
 
 class ImageCreator {
-    fun createLinesImage(
-        sourceImage: Mat,
-        horizontalLines: List<Line>,
-        verticalLines: List<Line>
-    ): Mat {
+    fun createLinesImage(sourceImage: Mat, lines: Lines): Mat {
 
         if (sourceImage.empty()) return Constants.NO_PICTURE
 
@@ -29,7 +24,7 @@ class ImageCreator {
             }
 
             counter = 0
-            for (horizontalLine in horizontalLines) {
+            for (horizontalLine in lines.horizontalLines) {
                 Imgproc.putText(
                     result,
                     "$counter",
@@ -54,7 +49,7 @@ class ImageCreator {
             }
 
             counter = 0
-            for (verticalLine in verticalLines) {
+            for (verticalLine in lines.verticalLines) {
 
                 Imgproc.putText(
                     result,
@@ -105,34 +100,5 @@ class ImageCreator {
             200.0
         )
         return result
-    }
-
-    fun createCornersImage(sourceImage: Mat, corners: List<Point>): Mat {
-        if (sourceImage.empty()) return Constants.NO_PICTURE
-
-        var result = Mat()
-
-        if (sourceImage.channels() == 1) {
-            Imgproc.cvtColor(
-                sourceImage,
-                result,
-                Imgproc.COLOR_GRAY2BGR
-            )
-        } else {
-            result = sourceImage.clone()
-        }
-
-        for (point in corners) {
-            Imgproc.circle(
-                result,
-                point,
-                5,
-                Scalar(0.0, 0.0, 255.0),
-                -1
-            )
-        }
-
-        return result
-
     }
 }

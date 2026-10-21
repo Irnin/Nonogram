@@ -8,7 +8,7 @@ object Constants {
 
     val NO_PICTURE: Mat = createNoCameraImage(640, 480)
 
-    private fun createNoCameraImage(width: Int, height: Int): Mat {
+    fun createNoCameraImage(width: Int, height: Int): Mat {
         val image = Mat.zeros(height, width, CvType.CV_8UC3)
 
         val font = Imgproc.FONT_HERSHEY_SIMPLEX

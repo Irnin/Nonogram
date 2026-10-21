@@ -32,7 +32,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getImage(ImageType.DRAFT))
+                MatImage(controller.getImage(ImageType.GLOBAL_LINES))
             }
 
             CameraDebugFrame(
@@ -41,7 +41,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getImage(ImageType.GLOBAL_CORNERS))
+                MatImage(controller.getImage(ImageType.BOARD))
             }
         }
 
@@ -56,7 +56,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getImage(ImageType.GLOBAL_LINES))
+                MatImage(controller.getImage(ImageType.DRAFT))
             }
 
             CameraDebugFrame(
@@ -65,7 +65,7 @@ fun CameraDebug(controller: CameraController) {
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                MatImage(controller.getImage(ImageType.BOARD))
+                MatImage(controller.getImage(ImageType.GLOBAL_EDGES))
             }
         }
     }

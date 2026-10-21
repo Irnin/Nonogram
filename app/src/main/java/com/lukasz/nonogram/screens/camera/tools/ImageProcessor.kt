@@ -4,12 +4,12 @@ import Constants
 import com.lukasz.nonogram.extensions.Util.intersection
 import com.lukasz.nonogram.screens.camera.CameraModel
 import com.lukasz.nonogram.screens.camera.model.BoardRegion
-import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 import com.lukasz.nonogram.screens.camera.model.Line
 import com.lukasz.nonogram.screens.camera.model.Line.Orientation
+import com.lukasz.nonogram.screens.camera.model.Lines
+import com.lukasz.nonogram.screens.camera.model.ProcessedImage
 import com.lukasz.nonogram.screens.camera.view.ImageCreator
 import org.opencv.core.Mat
-import org.opencv.core.MatOfPoint
 import org.opencv.core.MatOfPoint2f
 import org.opencv.core.Point
 import org.opencv.core.Size
@@ -19,87 +19,116 @@ import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
 
-class GridDetector(val model: CameraModel) {
-
-    //val lineBuffer = LineBuffer()
+class ImageProcessor(val model: CameraModel) {
     val imageCreator = ImageCreator()
 
-    fun initialProcess(grayImage: Mat) {
-        model.updateImage(ImageType.GLOBAL_GRAY, grayImage)
+    fun process(image: Mat): ProcessedImage {
+        if (image.empty()) return ProcessedImage(Lines(emptyList(), emptyList()), Mat(), Mat())
 
-        val edgeImage = imageCreator.createEdgesImage(grayImage)
-        model.updateImage(ImageType.GLOBAL_EDGES, edgeImage)
+        val sourceImage = image.clone()
 
-        val corners = calculateCorners(grayImage)
-        val cornersImage = imageCreator.createCornersImage(grayImage, corners)
-        model.updateImage(ImageType.GLOBAL_CORNERS, cornersImage)
+        val edgesImage = imageCreator.createEdgesImage(sourceImage)
 
-        val globalLines = detectLineSegments()
+        val globalLines = detectLineSegments(edgesImage)
 
-        val processedLines = processLines(globalLines)
-        val horizontalLines = processedLines.first
-        val verticalLines = processedLines.second
+        val lines = processLines(globalLines)
 
-        val globalImageLines = imageCreator.createLinesImage(
-            model.getImage(ImageType.GLOBAL_GRAY),
-            horizontalLines,
-            verticalLines
-        )
+        val linesImage = imageCreator.createLinesImage(sourceImage, lines)
 
-        model.updateImage(ImageType.GLOBAL_LINES, globalImageLines)
-
-        val boardRegion = localizeGameBoard(horizontalLines, verticalLines)
-        val boardImage = extractGameBoard(model.getImage(ImageType.GLOBAL_GRAY), boardRegion)
-
-        processBoardPicture(boardImage)
+        return ProcessedImage(lines, edgesImage, linesImage)
     }
 
-    fun processBoardPicture(boardImage: Mat) {
+    fun extractGameBoard(
+        sourceImage: Mat,
+        lines: Lines
+    ): Mat {
 
-        model.updateImage(ImageType.DRAFT, boardImage)
-    }
-
-
-    private fun calculateCorners(sourceImage: Mat): List<Point> {
-
-        if (sourceImage.empty()) return emptyList()
-
-        val corners = MatOfPoint()
-
-        val points = mutableListOf<Point>()
-
-        Imgproc.goodFeaturesToTrack(
-            sourceImage,
-            corners,
-            100,
-            0.01,
-            10.0
-        )
-
-        for (point in corners.toArray()) {
-            points.add(point)
+        if (sourceImage.empty()) {
+            return Mat()
         }
 
-        return points
+        val boardRegion = localizeGameBoard(lines)
+
+        val topLeft = boardRegion.topLeft
+        val topRight = boardRegion.topRight
+        val bottomLeft = boardRegion.bottomLeft
+        val bottomRight = boardRegion.bottomRight
+
+        val widthTop = hypot(
+            topRight.x - topLeft.x,
+            topRight.y - topLeft.y
+        )
+
+        val widthBottom = hypot(
+            bottomRight.x - bottomLeft.x,
+            bottomRight.y - bottomLeft.y
+        )
+
+        val outputWidth = max(widthTop, widthBottom).toInt()
+
+        val heightLeft = hypot(
+            bottomLeft.x - topLeft.x,
+            bottomLeft.y - topLeft.y
+        )
+
+        val heightRight = hypot(
+            bottomRight.x - topRight.x,
+            bottomRight.y - topRight.y
+        )
+
+        val outputHeight = max(heightLeft, heightRight).toInt()
+
+        if (outputWidth < 0 && outputHeight < 0) {
+            return Constants.NO_PICTURE
+        }
+
+        val sourcePoints = MatOfPoint2f(
+            topLeft,
+            topRight,
+            bottomRight,
+            bottomLeft
+        )
+
+        val destinationPoints = MatOfPoint2f(
+            Point(0.0, 0.0),
+            Point(outputWidth - 1.0, 0.0),
+            Point(outputWidth - 1.0, outputHeight - 1.0),
+            Point(0.0, outputHeight - 1.0)
+        )
+
+        val transform = Imgproc.getPerspectiveTransform(sourcePoints, destinationPoints)
+
+        val result = Mat()
+
+        Imgproc.warpPerspective(
+            sourceImage,
+            result,
+            transform,
+            Size(outputWidth.toDouble(), outputHeight.toDouble())
+        )
+
+        sourcePoints.release()
+        destinationPoints.release()
+        transform.release()
+
+        return result
     }
 
-    private fun detectLineSegments(): Mat {
-        val edgeImage = model.getImage(ImageType.GLOBAL_EDGES)
-
-        if (edgeImage.empty()) return Mat()
+    private fun detectLineSegments(edgesImage: Mat): Mat {
+        if (edgesImage.empty()) return Mat()
 
         val grayEdges = Mat()
 
-        if (edgeImage.channels() == 1) {
-            edgeImage.copyTo(grayEdges)
+        if (edgesImage.channels() == 1) {
+            edgesImage.copyTo(grayEdges)
         } else {
-            Imgproc.cvtColor(edgeImage, grayEdges, Imgproc.COLOR_BGR2GRAY)
+            Imgproc.cvtColor(edgesImage, grayEdges, Imgproc.COLOR_BGR2GRAY)
         }
 
         val lines = Mat()
 
         Imgproc.HoughLinesP(
-            edgeImage,
+            edgesImage,
             lines,
             1.0,
             Math.PI / 180.0,
@@ -111,16 +140,16 @@ class GridDetector(val model: CameraModel) {
         return lines
     }
 
-    private fun processLines(lines: Mat): Pair<List<Line>, List<Line>> {
+    private fun processLines(lines: Mat): Lines {
         val categorizedLines = categorizeLinesByOrientation(lines)
 
-        val horizontalLines = processLines(Orientation.HORIZONTAL, categorizedLines.first)
-        val verticalLines = processLines(Orientation.VERTICAL, categorizedLines.second)
+        val horizontalLines = processLines(Orientation.HORIZONTAL, categorizedLines.horizontalLines)
+        val verticalLines = processLines(Orientation.VERTICAL, categorizedLines.verticalLines)
 
-        return Pair(horizontalLines, verticalLines)
+        return Lines(horizontalLines, verticalLines)
     }
 
-    private fun categorizeLinesByOrientation(lines: Mat): Pair<List<Line>, List<Line>> {
+    private fun categorizeLinesByOrientation(lines: Mat): Lines {
         val angleTolerance = 20.0
 
         val horizontalLines = mutableListOf<Line>()
@@ -155,7 +184,7 @@ class GridDetector(val model: CameraModel) {
             }
         }
 
-        return Pair(horizontalLines, verticalLines)
+        return Lines(horizontalLines, verticalLines)
     }
 
     private fun processLines(
@@ -235,11 +264,10 @@ class GridDetector(val model: CameraModel) {
     }
 
     private fun localizeGameBoard(
-        horizontalLines: List<Line>,
-        verticalLines: List<Line>
+        lines: Lines
     ): BoardRegion {
-        val horizontal = horizontalLines.toList()
-        val vertical = verticalLines.toList()
+        val horizontal = lines.horizontalLines.toList()
+        val vertical = lines.verticalLines.toList()
 
         if (horizontal.isEmpty() || vertical.isEmpty()) {
             val point = Point(0.0, 0.0)
@@ -261,77 +289,6 @@ class GridDetector(val model: CameraModel) {
 
 
         return BoardRegion(topLeft, topRight, bottomLeft, bottomRight)
-    }
-
-    private fun extractGameBoard(sourceImage: Mat, boardRegion: BoardRegion): Mat {
-
-        if (sourceImage.empty()) {
-            return Constants.NO_PICTURE
-        }
-
-        val topLeft = boardRegion.topLeft
-        val topRight = boardRegion.topRight
-        val bottomLeft = boardRegion.bottomLeft
-        val bottomRight = boardRegion.bottomRight
-
-        val widthTop = hypot(
-            topRight.x - topLeft.x,
-            topRight.y - topLeft.y
-        )
-
-        val widthBottom = hypot(
-            bottomRight.x - bottomLeft.x,
-            bottomRight.y - bottomLeft.y
-        )
-
-        val outputWidth = max(widthTop, widthBottom).toInt()
-
-        val heightLeft = hypot(
-            bottomLeft.x - topLeft.x,
-            bottomLeft.y - topLeft.y
-        )
-
-        val heightRight = hypot(
-            bottomRight.x - topRight.x,
-            bottomRight.y - topRight.y
-        )
-
-        val outputHeight = max(heightLeft, heightRight).toInt()
-
-        if (outputWidth < 0 && outputHeight < 0) {
-            return Constants.NO_PICTURE
-        }
-
-        val sourcePoints = MatOfPoint2f(
-            topLeft,
-            topRight,
-            bottomRight,
-            bottomLeft
-        )
-
-        val destinationPoints = MatOfPoint2f(
-            Point(0.0, 0.0),
-            Point(outputWidth - 1.0, 0.0),
-            Point(outputWidth - 1.0, outputHeight - 1.0),
-            Point(0.0, outputHeight - 1.0)
-        )
-
-        val transform = Imgproc.getPerspectiveTransform(sourcePoints, destinationPoints)
-
-        val result = Mat()
-
-        Imgproc.warpPerspective(
-            sourceImage,
-            result,
-            transform,
-            Size(outputWidth.toDouble(), outputHeight.toDouble())
-        )
-
-        sourcePoints.release()
-        destinationPoints.release()
-        transform.release()
-
-        return result
     }
 }
 

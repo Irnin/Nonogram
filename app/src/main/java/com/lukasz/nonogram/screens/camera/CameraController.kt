@@ -1,5 +1,7 @@
 package com.lukasz.nonogram.screens.camera
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
@@ -7,14 +9,12 @@ import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import com.lukasz.nonogram.extensions.getGrayMap
 import com.lukasz.nonogram.screens.camera.model.Image.ImageType
-import com.lukasz.nonogram.screens.camera.tools.GridDetector
-import com.lukasz.nonogram.screens.camera.view.ImageCreator
+import com.lukasz.nonogram.screens.camera.tools.ImageProcessor
 import org.opencv.core.Mat
 
 class CameraController : ViewModel() {
     private val model = CameraModel()
-    private val gridDetector = GridDetector(model)
-    private val imageCreator = ImageCreator()
+    private val imageProcessor = ImageProcessor(model)
 
     override fun onCleared() {
         model.cleanModel()
@@ -22,19 +22,31 @@ class CameraController : ViewModel() {
 
     @OptIn(ExperimentalGetImage::class)
     fun processImage(imageProxy: ImageProxy) {
-        var grayImage: Mat? = null
+        var sourceImage: Mat? = null
+        var boardImage: Mat? = null
 
         try {
-            grayImage = imageProxy.getGrayMap().clone()
+            sourceImage = imageProxy.getGrayMap()
 
-            gridDetector.initialProcess(grayImage)
+            val processedGlobalImage = imageProcessor.process(sourceImage)
 
-            grayImage = null
+            boardImage = imageProcessor.extractGameBoard(sourceImage, processedGlobalImage.lines)
+            val processedBoardImage = imageProcessor.process(boardImage)
 
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    model.updateImage(ImageType.GLOBAL_LINES, processedGlobalImage.linesImage)
+                    model.updateImage(ImageType.GLOBAL_EDGES, processedGlobalImage.edgesImage)
+                    model.updateImage(ImageType.BOARD, processedBoardImage.linesImage)
+                } catch (e: Exception) {
+                    Log.e("CameraAnalysis", "Cannot update model", e)
+                }
+            }
         } catch (e: Exception) {
             Log.e("CameraAnalysis", "Cannot process frame", e)
         } finally {
-            grayImage?.release()
+            sourceImage?.release()
+            boardImage?.release()
             imageProxy.close()
         }
     }

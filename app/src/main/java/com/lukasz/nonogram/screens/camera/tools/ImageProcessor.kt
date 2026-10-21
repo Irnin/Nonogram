@@ -1,6 +1,5 @@
 package com.lukasz.nonogram.screens.camera.tools
 
-import Constants
 import com.lukasz.nonogram.extensions.Util.intersection
 import com.lukasz.nonogram.screens.camera.CameraModel
 import com.lukasz.nonogram.screens.camera.model.BoardRegion
@@ -38,10 +37,7 @@ class ImageProcessor(val model: CameraModel) {
         return ProcessedImage(lines, edgesImage, linesImage)
     }
 
-    fun extractGameBoard(
-        sourceImage: Mat,
-        lines: Lines
-    ): Mat {
+    fun extractGameBoard(sourceImage: Mat, lines: Lines): Mat {
 
         if (sourceImage.empty()) {
             return Mat()
@@ -79,7 +75,7 @@ class ImageProcessor(val model: CameraModel) {
         val outputHeight = max(heightLeft, heightRight).toInt()
 
         if (outputWidth < 0 && outputHeight < 0) {
-            return Constants.NO_PICTURE
+            return Mat()
         }
 
         val sourcePoints = MatOfPoint2f(
@@ -190,7 +186,7 @@ class ImageProcessor(val model: CameraModel) {
     private fun processLines(
         orientation: Orientation,
         lines: List<Line>,
-        threshold: Int = 10
+        threshold: Int = 5
     ): List<Line> {
 
         val sortedLines = when (orientation) {

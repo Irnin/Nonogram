@@ -17,8 +17,7 @@ import com.lukasz.nonogram.screens.game.view.Board
 fun Navigation(gameController: GameController, cameraController: CameraController) {
     val navController = rememberNavController()
 
-    val startupScreen = Screen.OpenCvDebugScreen
-//    val startupScreen = Screen.CameraScreen
+    val startupScreen = Screen.MainScreen
 
     NavHost(navController = navController, startDestination = startupScreen.route) {
         composable(route = Screen.MainScreen.route) {

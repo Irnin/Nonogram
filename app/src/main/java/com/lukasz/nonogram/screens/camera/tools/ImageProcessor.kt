@@ -1,8 +1,9 @@
 package com.lukasz.nonogram.screens.camera.tools
 
 import Constants
+import android.util.Log
+import com.google.mlkit.vision.text.Text
 import com.lukasz.nonogram.extensions.Util.intersection
-import com.lukasz.nonogram.screens.camera.CameraModel
 import com.lukasz.nonogram.screens.camera.model.BoardRegion
 import com.lukasz.nonogram.screens.camera.model.Line
 import com.lukasz.nonogram.screens.camera.model.Line.Orientation
@@ -19,11 +20,17 @@ import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
 
-class ImageProcessor(val model: CameraModel) {
+class ImageProcessor() {
     val imageCreator = ImageCreator()
+    val textRecognizer = TextRecognizer()
 
     fun process(image: Mat): ProcessedImage {
-        if (image.empty()) return ProcessedImage(Lines(emptyList(), emptyList()), Mat(), Mat())
+        if (image.empty()) return ProcessedImage(
+            Lines(emptyList(), emptyList()),
+            Mat(),
+            Mat(),
+            Mat()
+        )
 
         val sourceImage = image.clone()
 
@@ -35,13 +42,10 @@ class ImageProcessor(val model: CameraModel) {
 
         val linesImage = imageCreator.createLinesImage(sourceImage, lines)
 
-        return ProcessedImage(lines, edgesImage, linesImage)
+        return ProcessedImage(lines, image, edgesImage, linesImage)
     }
 
-    fun extractGameBoard(
-        sourceImage: Mat,
-        lines: Lines
-    ): Mat {
+    fun extractGameBoard(sourceImage: Mat, lines: Lines): Mat {
 
         if (sourceImage.empty()) {
             return Mat()
@@ -112,6 +116,66 @@ class ImageProcessor(val model: CameraModel) {
         transform.release()
 
         return result
+    }
+
+    fun recognizeText(
+        mat: Mat,
+        onSuccess: (Text) -> Unit
+    ) {
+        if (mat.empty()) {
+            Log.e("OCR", "Obraz jest pusty")
+            mat.release()
+            return
+        }
+
+        textRecognizer.recognize(
+            mat = mat,
+            onSuccess = { result ->
+                onSuccess(result)
+                mat.release()
+            },
+            onFailure = { exception ->
+                Log.e("OCR", "Błąd rozpoznawania tekstu", exception)
+                mat.release()
+            }
+        )
+    }
+
+    fun extractLastColumn(data: ProcessedImage): Mat {
+        val verticalLines = data.lines.verticalLines.toList()
+
+        if (verticalLines.size < 2) {
+            Log.w(
+                "ImageProcessor",
+                "Za mało linii pionowych: ${verticalLines.size}"
+            )
+            return Mat()
+        }
+
+        val lastIndex = verticalLines.lastIndex
+
+        val lastColumnLine = verticalLines[lastIndex]
+        val almostLastColumnLine = verticalLines[lastIndex - 1]
+
+        val x = almostLastColumnLine.getMinX().toInt()
+        val right = lastColumnLine.getMinX().toInt()
+
+        val image = data.sourceImage
+
+        if (x < 0 || right > image.cols() || x >= right) {
+            Log.w(
+                "ImageProcessor",
+                "Nieprawidłowe granice kolumny: x=$x, right=$right"
+            )
+            return Mat()
+        }
+
+        return image.submat(
+            0,
+            image.rows(),
+            x,
+            right
+        ).clone()
     }
 
     private fun detectLineSegments(edgesImage: Mat): Mat {

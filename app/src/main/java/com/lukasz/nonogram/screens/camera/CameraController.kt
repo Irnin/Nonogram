@@ -10,11 +10,13 @@ import androidx.lifecycle.ViewModel
 import com.lukasz.nonogram.extensions.getGrayMap
 import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 import com.lukasz.nonogram.screens.camera.tools.ImageProcessor
+import com.lukasz.nonogram.screens.camera.view.ImageCreator
 import org.opencv.core.Mat
 
 class CameraController : ViewModel() {
     private val model = CameraModel()
-    private val imageProcessor = ImageProcessor(model)
+    private val imageProcessor = ImageProcessor()
+    val imageCreator = ImageCreator()
 
     override fun onCleared() {
         model.cleanModel()
@@ -33,11 +35,14 @@ class CameraController : ViewModel() {
             boardImage = imageProcessor.extractGameBoard(sourceImage, processedGlobalImage.lines)
             val processedBoardImage = imageProcessor.process(boardImage)
 
+            val lastColumn = imageProcessor.extractLastColumn(processedBoardImage)
+
             Handler(Looper.getMainLooper()).post {
                 try {
                     model.updateImage(ImageType.GLOBAL_LINES, processedGlobalImage.linesImage)
                     model.updateImage(ImageType.GLOBAL_EDGES, processedGlobalImage.edgesImage)
                     model.updateImage(ImageType.BOARD, processedBoardImage.linesImage)
+                    model.updateImage(ImageType.DRAFT, lastColumn)
                 } catch (e: Exception) {
                     Log.e("CameraAnalysis", "Cannot update model", e)
                 }

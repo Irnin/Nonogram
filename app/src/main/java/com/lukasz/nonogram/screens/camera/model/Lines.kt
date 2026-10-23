@@ -4,4 +4,5 @@ class Lines(
     val horizontalLines: List<Line>,
     val verticalLines: List<Line>
 ) {
+
 }

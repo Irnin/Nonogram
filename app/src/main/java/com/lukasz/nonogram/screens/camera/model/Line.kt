@@ -40,5 +40,21 @@ class Line {
     enum class Orientation {
         HORIZONTAL, VERTICAL
     }
+
+    fun getMaxX(): Double {
+        return maxOf(start.x, end.x)
+    }
+
+    fun getMaxY(): Double {
+        return maxOf(start.y, end.y)
+    }
+
+    fun getMinX(): Double {
+        return minOf(start.x, end.x)
+    }
+
+    fun getMinY(): Double {
+        return minOf(start.x, end.x)
+    }
 }
 

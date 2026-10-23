@@ -33,7 +33,7 @@ fun CameraPreview(cameraController: CameraController, visible: Boolean = true) {
                 cameraProviderFuture.addListener({
 
                     val cameraProvider = cameraProviderFuture.get()
-                    val preview = Preview.Builder().build()         // ??
+                    val preview = Preview.Builder().build()
 
                     preview.surfaceProvider = surfaceProvider
 

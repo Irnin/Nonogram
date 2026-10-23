@@ -12,6 +12,7 @@ import com.lukasz.nonogram.screens.camera.view.debug.CameraDebug
 import com.lukasz.nonogram.screens.camera.view.debug.HintDebug
 import com.lukasz.nonogram.screens.game.GameController
 import com.lukasz.nonogram.screens.game.view.Board
+import com.lukasz.nonogram.screens.game.view.Levels
 
 @Composable
 fun Navigation(gameController: GameController, cameraController: CameraController) {
@@ -22,6 +23,10 @@ fun Navigation(gameController: GameController, cameraController: CameraControlle
     NavHost(navController = navController, startDestination = startupScreen.route) {
         composable(route = Screen.MainScreen.route) {
             MainScreen(navController)
+        }
+
+        composable(route = Screen.Levels.route) {
+            Levels(gameController, navController)
         }
 
         composable(route = Screen.GameScreen.route) {

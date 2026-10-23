@@ -28,7 +28,7 @@ fun MainScreen(navController: NavController) {
 
         Spacer(Modifier.height(50.dp))
 
-        MenuButton(navController, Screen.GameScreen)
+        MenuButton(navController, Screen.Levels)
         MenuButton(navController, Screen.CameraScreen)
 
         MenuButton(navController, Screen.OpenCvDebugScreen)

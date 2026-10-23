@@ -19,7 +19,6 @@ class MainActivity : ComponentActivity() {
     private val gameController by viewModels<GameController>()
     private val cameraController by viewModels<CameraController>()
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

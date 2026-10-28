@@ -35,14 +35,29 @@ class CameraController : ViewModel() {
             boardImage = imageProcessor.extractGameBoard(sourceImage, processedGlobalImage.lines)
             val processedBoardImage = imageProcessor.process(boardImage)
 
-            val lastColumn = imageProcessor.extractLastColumn(processedBoardImage)
+            val columnImage = imageProcessor.getColumn(processedBoardImage, 0)
+
+            imageProcessor.extractTextBlocks(columnImage) { textImage ->
+                if (textImage == null) {
+                    Log.e("CameraAnalysis", "OCR nie zwrócił obrazu")
+                    return@extractTextBlocks
+                }
+
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        model.updateImage(ImageType.DRAFT, textImage)
+                    } catch (e: Exception) {
+                    }
+                }
+            }
+
+            columnImage.release()
 
             Handler(Looper.getMainLooper()).post {
                 try {
                     model.updateImage(ImageType.GLOBAL_LINES, processedGlobalImage.linesImage)
                     model.updateImage(ImageType.GLOBAL_EDGES, processedGlobalImage.edgesImage)
                     model.updateImage(ImageType.BOARD, processedBoardImage.linesImage)
-                    model.updateImage(ImageType.DRAFT, lastColumn)
                 } catch (e: Exception) {
                     Log.e("CameraAnalysis", "Cannot update model", e)
                 }

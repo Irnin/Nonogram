@@ -2,17 +2,23 @@ package com.lukasz.nonogram.screens.camera.tools
 
 import Constants
 import android.util.Log
-import com.google.mlkit.vision.text.Text
+import androidx.core.graphics.createBitmap
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.lukasz.nonogram.extensions.Util.intersection
 import com.lukasz.nonogram.screens.camera.model.BoardRegion
+import com.lukasz.nonogram.screens.camera.model.ExtractedField
 import com.lukasz.nonogram.screens.camera.model.Line
 import com.lukasz.nonogram.screens.camera.model.Line.Orientation
 import com.lukasz.nonogram.screens.camera.model.Lines
 import com.lukasz.nonogram.screens.camera.model.ProcessedImage
 import com.lukasz.nonogram.screens.camera.view.ImageCreator
+import org.opencv.android.Utils
 import org.opencv.core.Mat
 import org.opencv.core.MatOfPoint2f
 import org.opencv.core.Point
+import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import kotlin.math.abs
@@ -24,25 +30,116 @@ class ImageProcessor() {
     val imageCreator = ImageCreator()
     val textRecognizer = TextRecognizer()
 
+    val recognizer = TextRecognition.getClient(
+        TextRecognizerOptions.DEFAULT_OPTIONS
+    )
+
     fun process(image: Mat): ProcessedImage {
         if (image.empty()) return ProcessedImage(
             Lines(emptyList(), emptyList()),
+            Mat(),
             Mat(),
             Mat(),
             Mat()
         )
 
         val sourceImage = image.clone()
-
-        val edgesImage = imageCreator.createEdgesImage(sourceImage)
+        val adaptedImage = imageCreator.adaptiveThreshold(sourceImage)
+        val edgesImage = imageCreator.createEdgesImage(adaptedImage)
 
         val globalLines = detectLineSegments(edgesImage)
-
         val lines = processLines(globalLines)
-
         val linesImage = imageCreator.createLinesImage(sourceImage, lines)
 
-        return ProcessedImage(lines, image, edgesImage, linesImage)
+        return ProcessedImage(lines, image, adaptedImage, edgesImage, linesImage)
+    }
+
+
+    fun extractTextBlocks(gray: Mat, onResult: (Mat?) -> Unit) {
+
+        if (gray.empty() || gray.channels() != 1) {
+            onResult(null)
+            return
+        }
+
+        val source = gray.clone()
+        val bitmap = createBitmap(source.cols(), source.rows())
+
+        val rgba = Mat()
+
+        try {
+            Imgproc.cvtColor(source, rgba, Imgproc.COLOR_GRAY2RGBA)
+            Utils.matToBitmap(rgba, bitmap)
+        } catch (e: Exception) {
+            rgba.release()
+            source.release()
+            bitmap.recycle()
+            onResult(null)
+            return
+        }
+
+        rgba.release()
+
+        val recognizer = TextRecognition.getClient(
+            TextRecognizerOptions.DEFAULT_OPTIONS
+        )
+
+        recognizer.process(InputImage.fromBitmap(bitmap, 0))
+            .addOnSuccessListener { visionText ->
+
+                val output = source.clone()
+
+                try {
+                    for (block in visionText.textBlocks) {
+                        val bounds = block.boundingBox ?: continue
+
+                        val left = bounds.left.coerceIn(0, output.cols() - 1)
+                        val top = bounds.top.coerceIn(0, output.rows() - 1)
+                        val right = bounds.right.coerceIn(0, output.cols() - 1)
+                        val bottom = bounds.bottom.coerceIn(0, output.rows() - 1)
+
+                        if (right <= left || bottom <= top) continue
+
+                        Log.d("OCR", "Tekst: ${block.text}, bounds: $bounds")
+
+                        Imgproc.rectangle(
+                            output,
+                            org.opencv.core.Point(left.toDouble(), top.toDouble()),
+                            org.opencv.core.Point(right.toDouble(), bottom.toDouble()),
+                            Scalar(255.0),
+                            2
+                        )
+
+                        Imgproc.putText(
+                            output,
+                            block.text,
+                            org.opencv.core.Point(
+                                left.toDouble(),
+                                (top - 5).coerceAtLeast(15).toDouble()
+                            ),
+                            Imgproc.FONT_HERSHEY_SIMPLEX,
+                            0.5,
+                            Scalar(255.0),
+                            1
+                        )
+                    }
+
+                    onResult(output)
+                } catch (e: Exception) {
+                    output.release()
+                    onResult(null)
+                } finally {
+                    source.release()
+                    bitmap.recycle()
+                    recognizer.close()
+                }
+            }
+            .addOnFailureListener { e ->
+                source.release()
+                bitmap.recycle()
+                recognizer.close()
+                onResult(null)
+            }
     }
 
     fun extractGameBoard(sourceImage: Mat, lines: Lines): Mat {
@@ -118,29 +215,6 @@ class ImageProcessor() {
         return result
     }
 
-    fun recognizeText(
-        mat: Mat,
-        onSuccess: (Text) -> Unit
-    ) {
-        if (mat.empty()) {
-            Log.e("OCR", "Obraz jest pusty")
-            mat.release()
-            return
-        }
-
-        textRecognizer.recognize(
-            mat = mat,
-            onSuccess = { result ->
-                onSuccess(result)
-                mat.release()
-            },
-            onFailure = { exception ->
-                Log.e("OCR", "Błąd rozpoznawania tekstu", exception)
-                mat.release()
-            }
-        )
-    }
-
     fun extractLastColumn(data: ProcessedImage): Mat {
         val verticalLines = data.lines.verticalLines.toList()
 
@@ -160,7 +234,7 @@ class ImageProcessor() {
         val x = almostLastColumnLine.getMinX().toInt()
         val right = lastColumnLine.getMinX().toInt()
 
-        val image = data.sourceImage
+        val image = data.adaptedImage
 
         if (x < 0 || right > image.cols() || x >= right) {
             Log.w(
@@ -175,6 +249,72 @@ class ImageProcessor() {
             image.rows(),
             x,
             right
+        ).clone()
+    }
+
+    fun extractColumns(data: ProcessedImage): List<ExtractedField> {
+        val verticalLines = data.lines.verticalLines.toList()
+
+        if (verticalLines.size < 2) {
+            return emptyList()
+        }
+
+        val extractedFields = mutableListOf<ExtractedField>()
+
+        var lastIndex = verticalLines.lastIndex
+        var column = 0
+
+        while (lastIndex > 0) {
+            val rightColumn = verticalLines[lastIndex]
+            val leftColumn = verticalLines[lastIndex - 1]
+
+            val columnImage = extractColumn(data, leftColumn, rightColumn)
+
+            if (columnImage.empty()) {
+                Log.w("OCR", "Skipped empty column image")
+                columnImage.release()
+                lastIndex -= 1
+                continue
+            }
+
+            val extractedField = ExtractedField(columnImage, column, Orientation.VERTICAL)
+            extractedFields.add(extractedField)
+
+            lastIndex -= 1
+            column += 1
+        }
+
+        return extractedFields
+    }
+
+    fun getColumn(data: ProcessedImage, number: Int): Mat {
+        val columns = extractColumns(data)
+
+        return columns
+            .firstOrNull { it.number == number }
+            ?.image
+            ?: Mat()
+    }
+
+    fun extractColumn(data: ProcessedImage, leftColumn: Line, rightColumn: Line): Mat {
+        val leftBorder = leftColumn.getMinX().toInt()
+        val rightBorder = rightColumn.getMaxX().toInt()
+
+        val image = data.adaptedImage
+
+        if (leftBorder < 0 || rightBorder > image.cols() || leftBorder >= rightBorder) {
+            Log.w(
+                "ImageProcessor",
+                "incorrect column border: left=$leftBorder, right=$rightBorder"
+            )
+            return Mat()
+        }
+
+        return image.submat(
+            0,
+            image.rows(),
+            leftBorder,
+            rightBorder
         ).clone()
     }
 
@@ -327,32 +467,40 @@ class ImageProcessor() {
         return Line(start, end, orientation)
     }
 
-    private fun localizeGameBoard(
-        lines: Lines
-    ): BoardRegion {
-        val horizontal = lines.horizontalLines.toList()
-        val vertical = lines.verticalLines.toList()
+    private fun localizeGameBoard(lines: Lines): BoardRegion {
+
+        val horizontal = lines.horizontalLines
+        val vertical = lines.verticalLines
 
         if (horizontal.isEmpty() || vertical.isEmpty()) {
             val point = Point(0.0, 0.0)
             return BoardRegion(point, point, point, point)
         }
 
-        val firstHorizontalLine = horizontal[0]
-        val lastHorizontalLine = horizontal[horizontal.size - 1]
+        val firstHorizontal = horizontal.first()
+        val lastHorizontal = horizontal.last()
+        val firstVertical = vertical.first()
+        val lastVertical = vertical.last()
 
-        val firstVerticalLine = vertical[0]
-        val lastVerticalLine = vertical[vertical.size - 1]
+        val topLeft = intersection(firstHorizontal, firstVertical) ?: return emptyBoardRegion()
+        val topRight = intersection(firstHorizontal, lastVertical) ?: return emptyBoardRegion()
+        val bottomLeft = intersection(lastHorizontal, firstVertical) ?: return emptyBoardRegion()
+        val bottomRight = intersection(lastHorizontal, lastVertical) ?: return emptyBoardRegion()
 
-        val offset = 40.0
+        val offset = 10.0
 
-        val topLeft = intersection(firstHorizontalLine, firstVerticalLine, -offset, -offset)!!
-        val topRight = intersection(firstHorizontalLine, lastVerticalLine, offset, -offset)!!
-        val bottomLeft = intersection(lastHorizontalLine, firstVerticalLine, offset, offset)!!
-        val bottomRight = intersection(lastHorizontalLine, lastVerticalLine, -offset, offset)!!
+        return BoardRegion(
+            Point(topLeft.x - offset, topLeft.y - offset),
+            Point(topRight.x + offset, topRight.y - offset),
+            Point(bottomLeft.x - offset, bottomLeft.y + offset),
+            Point(bottomRight.x + offset, bottomRight.y + offset)
+        )
 
+    }
 
-        return BoardRegion(topLeft, topRight, bottomLeft, bottomRight)
+    private fun emptyBoardRegion(): BoardRegion {
+        val point = Point(0.0, 0.0)
+        return BoardRegion(point, point, point, point)
     }
 }
 

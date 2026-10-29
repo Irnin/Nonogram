@@ -35,29 +35,32 @@ class CameraController : ViewModel() {
             boardImage = imageProcessor.extractGameBoard(sourceImage, processedGlobalImage.lines)
             val processedBoardImage = imageProcessor.process(boardImage)
 
-            val columnImage = imageProcessor.getColumn(processedBoardImage, 0)
+            val hints = imageProcessor.extractHints(processedBoardImage)
+            val columnImage = hints.getRow(1)
+//            val columnImage = hints.getColumn(7)
 
-            imageProcessor.extractTextBlocks(columnImage) { textImage ->
-                if (textImage == null) {
-                    Log.e("CameraAnalysis", "OCR nie zwrócił obrazu")
-                    return@extractTextBlocks
-                }
+//            imageProcessor.extractTextBlocks(columnImage) { textImage ->
+//                if (textImage == null) {
+////                    Log.e("CameraAnalysis", "OCR nie zwrócił obrazu")
+//                    return@extractTextBlocks
+//                }
+//
+//                Handler(Looper.getMainLooper()).post {
+//                    try {
+//                        model.updateImage(ImageType.DRAFT, textImage)
+//                    } catch (e: Exception) {
+//                    }
+//                }
+//            }
 
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        model.updateImage(ImageType.DRAFT, textImage)
-                    } catch (e: Exception) {
-                    }
-                }
-            }
-
-            columnImage.release()
+//            columnImage.release()
 
             Handler(Looper.getMainLooper()).post {
                 try {
                     model.updateImage(ImageType.GLOBAL_LINES, processedGlobalImage.linesImage)
                     model.updateImage(ImageType.GLOBAL_EDGES, processedGlobalImage.edgesImage)
                     model.updateImage(ImageType.BOARD, processedBoardImage.linesImage)
+                    model.updateImage(ImageType.DRAFT, columnImage)
                 } catch (e: Exception) {
                     Log.e("CameraAnalysis", "Cannot update model", e)
                 }

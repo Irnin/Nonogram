@@ -54,7 +54,7 @@ class Line {
     }
 
     fun getMinY(): Double {
-        return minOf(start.x, end.x)
+        return minOf(start.y, end.y)
     }
 }
 

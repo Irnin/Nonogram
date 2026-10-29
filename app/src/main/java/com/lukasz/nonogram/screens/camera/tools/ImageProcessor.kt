@@ -1,6 +1,5 @@
 package com.lukasz.nonogram.screens.camera.tools
 
-import Constants
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import com.google.mlkit.vision.common.InputImage
@@ -8,7 +7,8 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.lukasz.nonogram.extensions.Util.intersection
 import com.lukasz.nonogram.screens.camera.model.BoardRegion
-import com.lukasz.nonogram.screens.camera.model.ExtractedField
+import com.lukasz.nonogram.screens.camera.model.ExtractedHint
+import com.lukasz.nonogram.screens.camera.model.ExtractedHints
 import com.lukasz.nonogram.screens.camera.model.Line
 import com.lukasz.nonogram.screens.camera.model.Line.Orientation
 import com.lukasz.nonogram.screens.camera.model.Lines
@@ -180,7 +180,7 @@ class ImageProcessor() {
         val outputHeight = max(heightLeft, heightRight).toInt()
 
         if (outputWidth < 0 && outputHeight < 0) {
-            return Constants.NO_PICTURE
+            return Mat()
         }
 
         val sourcePoints = MatOfPoint2f(
@@ -215,109 +215,118 @@ class ImageProcessor() {
         return result
     }
 
-    fun extractLastColumn(data: ProcessedImage): Mat {
-        val verticalLines = data.lines.verticalLines.toList()
+    fun extractHints(data: ProcessedImage): ExtractedHints {
+        val columns = extractHint(data, Orientation.VERTICAL)
+        val rows = extractHint(data, Orientation.HORIZONTAL)
 
-        if (verticalLines.size < 2) {
-            Log.w(
-                "ImageProcessor",
-                "Za mało linii pionowych: ${verticalLines.size}"
-            )
-            return Mat()
-        }
-
-        val lastIndex = verticalLines.lastIndex
-
-        val lastColumnLine = verticalLines[lastIndex]
-        val almostLastColumnLine = verticalLines[lastIndex - 1]
-
-        val x = almostLastColumnLine.getMinX().toInt()
-        val right = lastColumnLine.getMinX().toInt()
-
-        val image = data.adaptedImage
-
-        if (x < 0 || right > image.cols() || x >= right) {
-            Log.w(
-                "ImageProcessor",
-                "Nieprawidłowe granice kolumny: x=$x, right=$right"
-            )
-            return Mat()
-        }
-
-        return image.submat(
-            0,
-            image.rows(),
-            x,
-            right
-        ).clone()
+        return ExtractedHints(columns, rows)
     }
 
-    fun extractColumns(data: ProcessedImage): List<ExtractedField> {
-        val verticalLines = data.lines.verticalLines.toList()
+    fun extractHint(
+        data: ProcessedImage,
+        orientation: Orientation
+    ): List<ExtractedHint> {
 
-        if (verticalLines.size < 2) {
+        val lines = when (orientation) {
+            Orientation.VERTICAL -> data.lines.verticalLines
+            Orientation.HORIZONTAL -> data.lines.horizontalLines
+        }
+
+        if (lines.size < 2) {
             return emptyList()
         }
 
-        val extractedFields = mutableListOf<ExtractedField>()
+        val extractedHints = mutableListOf<ExtractedHint>()
 
-        var lastIndex = verticalLines.lastIndex
-        var column = 0
+        for (index in 0 until lines.lastIndex) {
+            val firstLine = lines[index]
+            val secondLine = lines[index + 1]
 
-        while (lastIndex > 0) {
-            val rightColumn = verticalLines[lastIndex]
-            val leftColumn = verticalLines[lastIndex - 1]
+            val image = extractRegion(
+                data = data,
+                firstLine = firstLine,
+                secondLine = secondLine,
+                orientation = orientation
+            )
 
-            val columnImage = extractColumn(data, leftColumn, rightColumn)
-
-            if (columnImage.empty()) {
-                Log.w("OCR", "Skipped empty column image")
-                columnImage.release()
-                lastIndex -= 1
+            if (image.empty()) {
+                Log.w(
+                    "OCR",
+                    "Skipped empty region: orientation=$orientation, index=$index"
+                )
+                image.release()
                 continue
             }
 
-            val extractedField = ExtractedField(columnImage, column, Orientation.VERTICAL)
-            extractedFields.add(extractedField)
-
-            lastIndex -= 1
-            column += 1
+            extractedHints.add(
+                ExtractedHint(
+                    image = image,
+                    number = index,
+                    orientation = orientation
+                )
+            )
         }
 
-        return extractedFields
+        return extractedHints
     }
 
-    fun getColumn(data: ProcessedImage, number: Int): Mat {
-        val columns = extractColumns(data)
-
-        return columns
-            .firstOrNull { it.number == number }
-            ?.image
-            ?: Mat()
-    }
-
-    fun extractColumn(data: ProcessedImage, leftColumn: Line, rightColumn: Line): Mat {
-        val leftBorder = leftColumn.getMinX().toInt()
-        val rightBorder = rightColumn.getMaxX().toInt()
+    fun extractRegion(
+        data: ProcessedImage,
+        firstLine: Line,
+        secondLine: Line,
+        orientation: Orientation
+    ): Mat {
 
         val image = data.adaptedImage
 
-        if (leftBorder < 0 || rightBorder > image.cols() || leftBorder >= rightBorder) {
-            Log.w(
-                "ImageProcessor",
-                "incorrect column border: left=$leftBorder, right=$rightBorder"
-            )
+        if (image.empty()) {
             return Mat()
         }
 
-        return image.submat(
-            0,
-            image.rows(),
-            leftBorder,
-            rightBorder
-        ).clone()
+        val (start, end) = when (orientation) {
+            Orientation.VERTICAL -> {
+                firstLine.getMaxX().toInt() to secondLine.getMinX().toInt()
+            }
+
+            Orientation.HORIZONTAL -> {
+                firstLine.getMaxY().toInt() to secondLine.getMinY().toInt()
+            }
+        }
+
+        val limit = when (orientation) {
+            Orientation.VERTICAL -> image.cols()
+            Orientation.HORIZONTAL -> image.rows()
+        }
+
+        if (start < 0 || end > limit || start >= end) {
+            return Mat()
+        }
+
+        val roi = when (orientation) {
+            Orientation.VERTICAL -> image.submat(
+                0,
+                image.rows(),
+                start,
+                end
+            )
+
+            Orientation.HORIZONTAL -> image.submat(
+                start,
+                end,
+                0,
+                image.cols()
+            )
+        }
+
+        return try {
+            roi.clone()
+        } finally {
+            roi.release()
+        }
     }
 
+    // LINES
+    // ==============================================================================================================
     private fun detectLineSegments(edgesImage: Mat): Mat {
         if (edgesImage.empty()) return Mat()
 

@@ -1,6 +1,5 @@
 package com.lukasz.nonogram.screens.camera
 
-import Constants
 import com.lukasz.nonogram.screens.camera.model.Image
 import com.lukasz.nonogram.screens.camera.model.Image.ImageType
 import org.opencv.core.Mat
@@ -15,7 +14,7 @@ class CameraModel {
     }
 
     fun getImage(type: ImageType): Mat {
-        return images[type]?.get() ?: Constants.NO_PICTURE
+        return images[type]?.get() ?: Mat()
     }
 
     fun updateImage(type: ImageType, image: Mat?) {
